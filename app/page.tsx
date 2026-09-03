@@ -15,18 +15,17 @@ export default function Home() {
         </header>
 
         <ThermalMagnifier
-          baseSrc="/room.png"
-          thermalSrc="/room-thermal.png"
+          baseSrc="/room.jpg"
           alt="Open-plan kitchen and living room"
-          width={1200}
-          height={800}
+          width={1600}
+          height={1088}
           radius={130}
         />
 
         <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-500">
-          The two images in <code className="font-mono">public/</code> are
-          generated placeholders. Swap in a real photo pair shot from the same
-          position — see the README.
+          The thermal view here is derived from the photo itself. Pass a{' '}
+          <code className="font-mono">thermalSrc</code> to use a real infrared
+          shot instead — see the README.
         </p>
       </main>
     </div>

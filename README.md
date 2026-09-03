@@ -22,39 +22,55 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Thermal magnifying glass
 
-`components/thermal-magnifier.tsx` renders a normal photo with a circular lens
-that follows the pointer and reveals an infrared photo of the same scene
-underneath it.
+`components/thermal-magnifier.tsx` renders a photo with a circular lens that
+follows the pointer and reveals a thermal view of the same scene underneath it.
 
 ```tsx
 <ThermalMagnifier
-  baseSrc="/room.png"
-  thermalSrc="/room-thermal.png"
+  baseSrc="/room.jpg"
   alt="Open-plan kitchen and living room"
-  width={1200}
-  height={800}
+  width={1600}
+  height={1088}
   radius={130}
 />
 ```
 
-Both images are stacked in the same box with `object-cover`, and the top one is
+Both layers are stacked in the same box with `object-cover`, and the top one is
 clipped with `clip-path: circle(...)`, so the two views stay in register at any
-size. The lens centre is written to CSS custom variables once per animation
+size. The lens centre is written to CSS custom properties once per animation
 frame, so pointer movement never re-renders the component.
 
-### Using your own photos
+### Where the thermal view comes from
 
-Replace `public/room.png` and `public/room-thermal.png` with your pair, then
-update the `src` props and `width`/`height` in `app/page.tsx`. The two shots
-should be framed identically and share an aspect ratio — anything else and the
-lens will not line up with what surrounds it.
+With only a `baseSrc`, the thermal view is generated from that photo by an
+inline SVG filter: a slight blur (infrared sensors resolve far less detail than
+a camera), a desaturate to luminance, a gamma curve, then an
+`feComponentTransfer` colour lookup table holding a cold-to-hot ramp.
 
-The images currently in `public/` are synthetic placeholders. Regenerate them
-from the repository root with:
+This is a stylised effect, not measurement — it maps how *bright* a surface is,
+not how warm. A sunlit window reads hot even though it is usually the coldest
+part of a wall in winter. Use it for the visual; use a real infrared photo for
+anything that has to be true.
 
-```bash
-python3 scripts/make-placeholders.py
+### Using a real infrared photo
+
+Pass `thermalSrc` alongside `baseSrc` and the lens shows that image directly,
+with no filter:
+
+```tsx
+<ThermalMagnifier
+  baseSrc="/room.jpg"
+  thermalSrc="/room-thermal.jpg"
+  alt="Open-plan kitchen and living room"
+  width={1600}
+  height={1088}
+/>
 ```
+
+The two shots must be framed identically and share an aspect ratio, or the lens
+will not line up with what surrounds it.
+
+Demo photo from [Unsplash](https://unsplash.com/photos/ce8a6c25118c).
 
 ## Learn More
 
