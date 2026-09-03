@@ -20,6 +20,42 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Thermal magnifying glass
+
+`components/thermal-magnifier.tsx` renders a normal photo with a circular lens
+that follows the pointer and reveals an infrared photo of the same scene
+underneath it.
+
+```tsx
+<ThermalMagnifier
+  baseSrc="/room.png"
+  thermalSrc="/room-thermal.png"
+  alt="Open-plan kitchen and living room"
+  width={1200}
+  height={800}
+  radius={130}
+/>
+```
+
+Both images are stacked in the same box with `object-cover`, and the top one is
+clipped with `clip-path: circle(...)`, so the two views stay in register at any
+size. The lens centre is written to CSS custom variables once per animation
+frame, so pointer movement never re-renders the component.
+
+### Using your own photos
+
+Replace `public/room.png` and `public/room-thermal.png` with your pair, then
+update the `src` props and `width`/`height` in `app/page.tsx`. The two shots
+should be framed identically and share an aspect ratio — anything else and the
+lens will not line up with what surrounds it.
+
+The images currently in `public/` are synthetic placeholders. Regenerate them
+from the repository root with:
+
+```bash
+python3 scripts/make-placeholders.py
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
