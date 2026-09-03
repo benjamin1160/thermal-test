@@ -24,6 +24,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 `components/thermal-magnifier.tsx` renders a photo with a circular lens that
 follows the pointer and reveals a thermal view of the same scene underneath it.
+On a touchscreen it works like a flashlight: the beam appears under the finger
+that presses the photo, tracks it, and goes out when the finger lifts.
 
 ```tsx
 <ThermalMagnifier
@@ -40,6 +42,27 @@ Both layers are stacked in the same box with `object-cover`, and the top one is
 clipped with `clip-path: circle(...)`, so the two views stay in register at any
 size. The lens centre is written to CSS custom properties once per animation
 frame, so pointer movement never re-renders the component.
+
+### On touch
+
+`radius` is the *largest* lens, not the only one. The frame is fluid, so a
+radius that reads as a lens on a laptop is wider than the whole photo on a
+phone — the component measures the frame and caps the lens at 32% of its short
+side, which is why the prop above still behaves on a 342px-wide screen.
+
+The rest is what a finger needs that a mouse does not:
+
+- `touch-action: none` on the frame, so a sweep drives the beam instead of
+  being claimed as a page scroll half way through.
+- `-webkit-touch-callout: none`, `pointer-events: none` on both `<Image>`s, and
+  a suppressed `contextmenu`, so a long press does not offer to save the photo.
+  The images take no hits, so the press lands on the frame and the browser has
+  no image to act on.
+- The beam is lifted `TOUCH_LIFT` px above the contact point, the same trick the
+  text loupe uses, because a finger otherwise covers what it is revealing.
+- The frame captures the pointer, and the centre is clamped to the frame, so a
+  finger that runs off the edge keeps the beam on the photo instead of dragging
+  it half outside.
 
 ### Swapping the photos
 

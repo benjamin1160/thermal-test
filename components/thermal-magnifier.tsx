@@ -16,7 +16,11 @@ type ThermalMagnifierProps = {
   /** Intrinsic size of the photo, used for the frame's aspect ratio. */
   width: number
   height: number
-  /** Lens radius in CSS pixels. */
+  /**
+   * Largest lens radius in CSS pixels. The lens is also capped at a share of
+   * the frame's short side, so it stays a beam on a phone instead of swallowing
+   * the whole photo.
+   */
   radius?: number
 }
 
@@ -31,10 +35,25 @@ const RAMP = {
   b: [0.38, 0.82, 0.81, 0.36, 0.24, 0.16, 0.15],
 }
 
+/** Share of the frame's short side the lens may cover, and its floor in px. */
+const LENS_SHARE = 0.32
+const MIN_RADIUS = 44
+
 /**
- * Shows `baseSrc` with a circular "magnifying glass" of the thermal view
- * following the pointer. Both layers are stacked in the same box and the top
- * one is clipped to a circle, so the two views stay in register at any size.
+ * A finger sits on top of the very thing the lens is revealing, so on touch the
+ * beam is lifted this far above the contact point — about the same trick the
+ * text loupe uses. Mice have no such problem and get no offset.
+ */
+const TOUCH_LIFT = 56
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max)
+
+/**
+ * Shows `baseSrc` with a circular "flashlight" of the thermal view that follows
+ * the pointer — hover on a mouse, drag on a touchscreen. Both layers are
+ * stacked in the same box and the top one is clipped to a circle, so the two
+ * views stay in register at any size.
  */
 export default function ThermalMagnifier({
   baseSrc,
@@ -47,11 +66,34 @@ export default function ThermalMagnifier({
   const frameRef = useRef<HTMLDivElement>(null)
   const pointRef = useRef<{ x: number; y: number } | null>(null)
   const frameRequestRef = useRef<number | null>(null)
+  /** Pointer id of the finger currently dragging, so a second one is ignored. */
+  const touchIdRef = useRef<number | null>(null)
   const [lensOpen, setLensOpen] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const [frameSize, setFrameSize] = useState<{ w: number; h: number } | null>(null)
 
   // useId can contain characters that are not valid in a CSS url() reference.
   const filterId = `thermal-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+
+  // The frame is fluid, so a radius fixed in CSS pixels that reads as a lens on
+  // a laptop covers a phone-sized photo end to end. Scale it with the box.
+  const shortSide = frameSize ? Math.min(frameSize.w, frameSize.h) : 0
+  const lensRadius = shortSide
+    ? clamp(shortSide * LENS_SHARE, Math.min(MIN_RADIUS, shortSide / 2), radius)
+    : radius
+
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const observer = new ResizeObserver(([entry]) => {
+      const { width: w, height: h } = entry.contentRect
+      setFrameSize((previous) =>
+        previous && previous.w === w && previous.h === h ? previous : { w, h },
+      )
+    })
+    observer.observe(frame)
+    return () => observer.disconnect()
+  }, [])
 
   // Pointer moves fire far more often than the display refreshes, so the
   // position is written straight to CSS variables once per frame instead of
@@ -65,24 +107,74 @@ export default function ThermalMagnifier({
     frame.style.setProperty('--lens-y', `${point.y}px`)
   }, [])
 
-  const trackPointer = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const frame = frameRef.current
-    if (!frame) return
-    const bounds = frame.getBoundingClientRect()
-    pointRef.current = {
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-    }
-    frameRequestRef.current ??= requestAnimationFrame(writePoint)
-  }, [writePoint])
+  const trackPointer = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const frame = frameRef.current
+      if (!frame) return
+      const bounds = frame.getBoundingClientRect()
+      const lift = event.pointerType === 'mouse' ? 0 : Math.min(TOUCH_LIFT, lensRadius)
+      // Clamped so a finger that slides off the edge keeps the beam on the
+      // photo rather than parking it half outside.
+      pointRef.current = {
+        x: clamp(event.clientX - bounds.left, 0, bounds.width),
+        y: clamp(event.clientY - bounds.top - lift, 0, bounds.height),
+      }
+      frameRequestRef.current ??= requestAnimationFrame(writePoint)
+    },
+    [lensRadius, writePoint],
+  )
 
-  const openLens = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    trackPointer(event)
-    writePoint() // place the lens before it grows, so it does not fly in
-    setLensOpen(true)
-  }, [trackPointer, writePoint])
+  /** Places the lens before it grows, so it does not fly in from elsewhere. */
+  const placeLens = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      trackPointer(event)
+      writePoint()
+      setLensOpen(true)
+    },
+    [trackPointer, writePoint],
+  )
 
-  const closeLens = useCallback(() => setLensOpen(false), [])
+  const handlePointerEnter = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      // Touch fires enter alongside down; the press handler owns that case.
+      if (event.pointerType !== 'mouse') return
+      placeLens(event)
+    },
+    [placeLens],
+  )
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType === 'mouse') return
+      if (touchIdRef.current !== null) return
+      touchIdRef.current = event.pointerId
+      // Capture keeps the beam tracking even once the finger leaves the frame.
+      event.currentTarget.setPointerCapture(event.pointerId)
+      placeLens(event)
+    },
+    [placeLens],
+  )
+
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== 'mouse' && touchIdRef.current !== event.pointerId) return
+      trackPointer(event)
+    },
+    [trackPointer],
+  )
+
+  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (touchIdRef.current !== event.pointerId) return
+    touchIdRef.current = null
+    setLensOpen(false)
+  }, [])
+
+  const handlePointerLeave = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    // A captured finger reports leave as soon as it crosses the edge, but it is
+    // still driving the beam; only a mouse actually leaving closes the lens.
+    if (event.pointerType !== 'mouse') return
+    setLensOpen(false)
+  }, [])
 
   useEffect(() => () => {
     if (frameRequestRef.current !== null) {
@@ -118,36 +210,44 @@ export default function ThermalMagnifier({
 
       <div
         ref={frameRef}
-        onPointerEnter={openLens}
-        onPointerMove={trackPointer}
-        onPointerLeave={closeLens}
-        onPointerCancel={closeLens}
+        onPointerEnter={handlePointerEnter}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
+        // Long-pressing a photo otherwise offers to save or share it, which
+        // interrupts the drag the moment the beam gets interesting.
+        onContextMenu={(event) => event.preventDefault()}
+        onDragStart={(event) => event.preventDefault()}
         style={{
           aspectRatio: `${width} / ${height}`,
-          '--lens-r': `${lensOpen && !showAll ? radius : 0}px`,
+          '--lens-r': `${lensOpen && !showAll ? lensRadius : 0}px`,
         } as React.CSSProperties}
         className="thermal-frame relative w-full cursor-crosshair overflow-hidden rounded-xl bg-zinc-200 select-none dark:bg-zinc-800"
       >
+        {/* The images take no hits, so the frame is what a long press lands on
+            and the browser has no image to offer up. */}
         <Image
           src={baseSrc}
           alt={alt}
           fill
           sizes={sizes}
-          className="object-cover"
+          className="pointer-events-none object-cover"
           draggable={false}
           loading="eager"
           fetchPriority="high"
         />
         <div
           aria-hidden
-          className={`thermal-lens absolute inset-0 ${showAll ? 'thermal-lens--all' : ''}`}
+          className={`thermal-lens pointer-events-none absolute inset-0 ${showAll ? 'thermal-lens--all' : ''}`}
         >
           <Image
             src={thermalSrc ?? baseSrc}
             alt=""
             fill
             sizes={sizes}
-            className="object-cover"
+            className="pointer-events-none object-cover"
             draggable={false}
             loading="eager"
             style={thermalSrc ? undefined : { filter: `url(#${filterId})` }}
@@ -157,12 +257,12 @@ export default function ThermalMagnifier({
       </div>
 
       <figcaption className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-        <span>Move your pointer over the photo to look through the thermal lens.</span>
+        <span>Drag a finger — or move your pointer — to shine the thermal light.</span>
         <button
           type="button"
           onClick={() => setShowAll((on) => !on)}
           aria-pressed={showAll}
-          className="rounded-full border border-zinc-300 px-3 py-1 font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
+          className="touch-manipulation rounded-full border border-zinc-300 px-3 py-1 font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
         >
           {showAll ? 'Show normal view' : 'Show full thermal'}
         </button>
