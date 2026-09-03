@@ -15,17 +15,18 @@ export default function Home() {
         </header>
 
         <ThermalMagnifier
-          baseSrc="/room.jpg"
-          alt="Open-plan kitchen and living room"
-          width={1600}
-          height={1088}
+          baseSrc="/kitchen.webp"
+          thermalSrc="/kitchen-thermal.webp"
+          alt="Open-plan kitchen with an island, pendant lights and a dining area"
+          width={2000}
+          height={1334}
           radius={130}
         />
 
         <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-500">
-          The thermal view here is derived from the photo itself. Pass a{' '}
-          <code className="font-mono">thermalSrc</code> to use a real infrared
-          shot instead — see the README.
+          The lens shows a real infrared photograph of this room. Drop the{' '}
+          <code className="font-mono">thermalSrc</code> prop and it falls back to
+          deriving one from the photo — see the README.
         </p>
       </main>
     </div>

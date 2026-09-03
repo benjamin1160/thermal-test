@@ -27,10 +27,11 @@ follows the pointer and reveals a thermal view of the same scene underneath it.
 
 ```tsx
 <ThermalMagnifier
-  baseSrc="/room.jpg"
-  alt="Open-plan kitchen and living room"
-  width={1600}
-  height={1088}
+  baseSrc="/kitchen.webp"
+  thermalSrc="/kitchen-thermal.webp"
+  alt="Open-plan kitchen with an island, pendant lights and a dining area"
+  width={2000}
+  height={1334}
   radius={130}
 />
 ```
@@ -40,37 +41,23 @@ clipped with `clip-path: circle(...)`, so the two views stay in register at any
 size. The lens centre is written to CSS custom properties once per animation
 frame, so pointer movement never re-renders the component.
 
-### Where the thermal view comes from
+### Swapping the photos
 
-With only a `baseSrc`, the thermal view is generated from that photo by an
-inline SVG filter: a slight blur (infrared sensors resolve far less detail than
-a camera), a desaturate to luminance, a gamma curve, then an
+Replace `public/kitchen.webp` and `public/kitchen-thermal.webp`, then update the
+`src` props and `width`/`height`. The two shots must be framed identically and
+share an aspect ratio, or the lens will not line up with what surrounds it.
+
+### Without an infrared photo
+
+Omit `thermalSrc` and the thermal view is generated from `baseSrc` by an inline
+SVG filter: a slight blur (infrared sensors resolve far less detail than a
+camera), a desaturate to luminance, a gamma curve, then an
 `feComponentTransfer` colour lookup table holding a cold-to-hot ramp.
 
-This is a stylised effect, not measurement — it maps how *bright* a surface is,
-not how warm. A sunlit window reads hot even though it is usually the coldest
-part of a wall in winter. Use it for the visual; use a real infrared photo for
-anything that has to be true.
-
-### Using a real infrared photo
-
-Pass `thermalSrc` alongside `baseSrc` and the lens shows that image directly,
-with no filter:
-
-```tsx
-<ThermalMagnifier
-  baseSrc="/room.jpg"
-  thermalSrc="/room-thermal.jpg"
-  alt="Open-plan kitchen and living room"
-  width={1600}
-  height={1088}
-/>
-```
-
-The two shots must be framed identically and share an aspect ratio, or the lens
-will not line up with what surrounds it.
-
-Demo photo from [Unsplash](https://unsplash.com/photos/ce8a6c25118c).
+That fallback is a stylised effect, not measurement — it maps how *bright* a
+surface is, not how warm. A sunlit window reads hot even though it is usually
+the coldest part of a wall in winter. Supply a real infrared photo for anything
+that has to be true.
 
 ## Learn More
 
