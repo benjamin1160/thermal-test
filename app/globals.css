@@ -38,6 +38,11 @@ body {
   --lens-x: 50%;
   --lens-y: 50%;
   transition: --lens-r 200ms ease-out;
+  /* The frame owns the whole gesture: without this the browser claims a drag
+     for scrolling and cancels the pointer part way through the sweep. */
+  touch-action: none;
+  /* Stops the long-press "Save Image / Copy" callout on iOS. */
+  -webkit-touch-callout: none;
 }
 
 .thermal-lens {
@@ -60,7 +65,10 @@ body {
   box-shadow:
     inset 0 0 0 2px rgb(255 255 255 / 0.85),
     inset 0 0 18px rgb(0 0 0 / 0.35),
-    0 6px 20px rgb(0 0 0 / 0.35);
+    0 6px 20px rgb(0 0 0 / 0.35),
+    /* Warm spill around the beam, so the lens reads as a light being shone
+       rather than a hole cut in the photo. */
+    0 0 32px 6px rgb(255 170 70 / 0.22);
 }
 
 @media (prefers-reduced-motion: reduce) {

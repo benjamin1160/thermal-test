@@ -9,8 +9,9 @@ export default function Home() {
             Thermal magnifying glass
           </h1>
           <p className="text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            A circular lens follows the pointer and reveals the infrared version
-            of the same shot underneath it.
+            Sweep a finger across the photo — or a pointer, on a desktop — and a
+            circular beam reveals the infrared version of the same shot
+            underneath it.
           </p>
         </header>
 
